@@ -203,7 +203,7 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
 </div>
 
 <model-viewer id="axiolo"
-  src="assets/axiolo-mascot.glb"
+  data-model-src="assets/axiolo-mascot.glb"
   alt="Axiolo mascot in an interactive 3D and augmented reality experience"
   camera-controls
   touch-action="pan-y"
@@ -254,7 +254,8 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
 
 <script>
 const AXIOLO_URL = 'https://www.axiolo.com/';
-const MODEL_PATH = 'assets/axiolo-mascot.glb';
+const MODEL_ANDROID = 'assets/axiolo-mascot.glb';
+const MODEL_IOS = 'assets/axiolo-mascot-ios.glb';
 
 const mv = document.getElementById('axiolo');
 const boot = document.getElementById('boot');
@@ -273,48 +274,77 @@ const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isMobile = isAndroid || isIOS || matchMedia('(pointer:coarse)').matches;
 
-// Use the iPhone-optimized GLB as the active source on Apple devices.
-// Quick Look is then generated from this active model by <model-viewer>.
-if (isIOS) {
-  mv.setAttribute('src', 'assets/axiolo-mascot-ios.glb');
+let cameraPrimed = false;
+let launchingAR = false;
+let modelLoadPromise = null;
+let pointerStart = null;
+let autoLaunchTimer = null;
+let startupWatchdog = null;
+
+/* ----------------------------------------------------------
+   Model helpers
+---------------------------------------------------------- */
+function activeModelPath() {
+  return isIOS ? MODEL_IOS : MODEL_ANDROID;
 }
 
-let pointerStart = null;
-let launchingAR = false;
-let cameraPrimed = false;
-let autoAttemptFinished = false;
+function startModelLoad() {
+  if (mv.getAttribute('src')) return;
 
-/* ----------------------------------------------------------
-   Same interaction pattern as the original project:
-   short tap on the 3D model -> website.
-   Drag and pinch remain available for camera-controls.
----------------------------------------------------------- */
-mv.addEventListener('pointerdown', (e) => {
-  pointerStart = (e.target === mv)
-    ? {x:e.clientX, y:e.clientY, time:Date.now()}
-    : null;
-});
+  title.textContent = 'Loading Axiolo';
+  text.textContent = 'Downloading the 3D model…';
+  spinner.style.display = 'block';
+  status.textContent = 'Loading 3D model…';
 
-mv.addEventListener('pointerup', (e) => {
-  if (!pointerStart) return;
-  const dx = e.clientX - pointerStart.x;
-  const dy = e.clientY - pointerStart.y;
-  const distance = Math.hypot(dx,dy);
-  const duration = Date.now() - pointerStart.time;
-  pointerStart = null;
+  mv.setAttribute('src', activeModelPath());
+}
 
-  if (e.target === mv && distance < 8 && duration < 400) {
-    window.location.href = AXIOLO_URL;
+function ensureModelLoaded() {
+  if (mv.loaded) return Promise.resolve();
+
+  if (!modelLoadPromise) {
+    startModelLoad();
+
+    modelLoadPromise = new Promise((resolve, reject) => {
+      const loaded = () => {
+        cleanup();
+        resolve();
+      };
+      const failed = () => {
+        cleanup();
+        modelLoadPromise = null;
+        reject(new Error('MODEL_LOAD_FAILED'));
+      };
+      const cleanup = () => {
+        mv.removeEventListener('load', loaded);
+        mv.removeEventListener('error', failed);
+      };
+
+      mv.addEventListener('load', loaded, {once:true});
+      mv.addEventListener('error', failed, {once:true});
+    });
   }
-});
 
-mv.addEventListener('pointercancel', () => pointerStart = null);
+  return modelLoadPromise;
+}
 
+function playSpin() {
+  try {
+    const animations = mv.availableAnimations || [];
+    if (animations.includes('AxioloSpin')) {
+      mv.animationName = 'AxioloSpin';
+      mv.currentTime = 0;
+      mv.play({repetitions: Infinity});
+    } else if (animations.length) {
+      mv.animationName = animations[0];
+      mv.currentTime = 0;
+      mv.play({repetitions: Infinity});
+    }
+  } catch (e) {
+    console.warn('Could not start AxioloSpin:', e);
+  }
+}
 
-/* ----------------------------------------------------------
-   Center the actual GLB geometry instead of assuming its origin
-   is already centered.
----------------------------------------------------------- */
 function centerModel() {
   try {
     const c = mv.getBoundingBoxCenter();
@@ -325,23 +355,49 @@ function centerModel() {
     }
 
     if (d && Number.isFinite(d.x) && Number.isFinite(d.y) && Number.isFinite(d.z)) {
-      const largest = Math.max(d.x,d.y,d.z);
+      const largest = Math.max(d.x, d.y, d.z);
       const distance = Math.max(largest * 2.15, 1.6);
       mv.cameraOrbit = `0deg 75deg ${distance}m`;
     }
 
     mv.jumpCameraToGoal();
-  } catch(err) {
-    console.warn('Could not auto-center model:', err);
+  } catch (e) {
+    console.warn('Could not center model:', e);
   }
 }
 
 /* ----------------------------------------------------------
-   Android Scene Viewer.
-   IMPORTANT: link= is what creates the native Visit button.
+   Camera permission — same first step as the working clock.
+---------------------------------------------------------- */
+async function requestCameraPermission() {
+  if (cameraPrimed) return;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('CAMERA_API_UNAVAILABLE');
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      facingMode: {ideal: 'environment'},
+      width: {ideal: 1280},
+      height: {ideal: 720}
+    }
+  });
+
+  stream.getTracks().forEach(track => track.stop());
+  cameraPrimed = true;
+}
+
+/* ----------------------------------------------------------
+   Android native Scene Viewer.
+   IMPORTANT:
+   - Scene Viewer downloads the GLB itself.
+   - We do NOT wait for the browser's <model-viewer> to download 26 MB.
+   - link= supplies the website action inside the native AR interface.
 ---------------------------------------------------------- */
 function buildSceneViewerUrls() {
-  const modelUrl = new URL(MODEL_PATH, window.location.href).href;
+  const modelUrl = new URL(MODEL_ANDROID, window.location.href).href;
   const titleText = 'Axiolo — Discover our website';
 
   const webSceneViewer =
@@ -369,260 +425,272 @@ function buildSceneViewerUrls() {
   return {intent, webSceneViewer};
 }
 
-function openAndroidSceneViewer() {
+function openAndroidSceneViewer({automatic = false} = {}) {
   const {intent} = buildSceneViewerUrls();
 
-  /* Must happen directly inside the user's click.
-     Do not await camera permissions first or Chrome can lose
-     the user gesture required to launch the native viewer. */
-  status.textContent = 'Opening Android AR viewer…';
+  title.textContent = 'Opening augmented reality';
+  text.textContent = 'Starting the Android AR viewer…';
+  spinner.style.display = 'block';
+  status.textContent = 'Opening Android AR…';
+
+  let pageWasHidden = false;
+
+  const onVisibility = () => {
+    if (document.hidden) {
+      pageWasHidden = true;
+      stopStartupWatchdog();
+      boot.classList.add('hide');
+    }
+  };
+
+  document.addEventListener('visibilitychange', onVisibility);
+
   window.location.href = intent;
-}
 
-async function openAppleAR() {
-  status.textContent = 'Opening augmented reality…';
+  clearTimeout(autoLaunchTimer);
+  autoLaunchTimer = setTimeout(() => {
+    document.removeEventListener('visibilitychange', onVisibility);
 
-  try {
-    if (!mv.loaded) {
-      await new Promise((resolve,reject)=>{
-        const ok=()=>{cleanup();resolve()};
-        const bad=()=>{cleanup();reject(new Error('Model load failed'))};
-        const cleanup=()=>{
-          mv.removeEventListener('load',ok);
-          mv.removeEventListener('error',bad);
-        };
-        mv.addEventListener('load',ok,{once:true});
-        mv.addEventListener('error',bad,{once:true});
-      });
-    }
-
-    if (!mv.canActivateAR) throw new Error('AR unavailable');
-    try {
-      const animations = mv.availableAnimations || [];
-      if (animations.includes('AxioloSpin')) {
-        mv.animationName = 'AxioloSpin';
-        mv.currentTime = 0;
-        mv.play({repetitions: Infinity});
-      }
-    } catch(e) {}
-    await mv.activateAR();
-    boot.classList.add('hide');
-  } catch(err) {
-    console.warn(err);
-    title.textContent = 'AR could not be opened';
-    text.textContent = 'You can still explore Axiolo in 3D on this device.';
-    spinner.style.display = 'none';
-    startBtn.textContent = 'Try AR again';
-    startBtn.classList.add('show');
-    view3dBtn.classList.add('show');
-  }
-}
-
-
-async function requestCameraPermission() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('CAMERA_API_UNAVAILABLE');
-  }
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio:false,
-    video:{
-      facingMode:{ideal:'environment'},
-      width:{ideal:1280},
-      height:{ideal:720}
-    }
-  });
-
-  stream.getTracks().forEach(track => track.stop());
-  cameraPrimed = true;
-}
-
-
-let startupWatchdog = null;
-
-function startStartupWatchdog() {
-  clearTimeout(startupWatchdog);
-  startupWatchdog = setTimeout(() => {
-    if (!boot.classList.contains('hide') && isMobile) {
-      autoAttemptFinished = true;
+    // If Android did not leave the page, the automatic external-app
+    // launch was blocked or unavailable. Show BOTH fallback choices.
+    if (!pageWasHidden && document.visibilityState === 'visible') {
       launchingAR = false;
-      showARFallback(new Error('MODEL_LOADING_TIMEOUT'));
+      showFallback(
+        automatic
+          ? 'Android needs a direct tap to open the AR viewer on this device.'
+          : 'The Android AR viewer could not be opened.'
+      );
     }
-  }, 9000);
+  }, automatic ? 1800 : 2600);
+}
+
+/* ----------------------------------------------------------
+   Apple / in-browser AR
+---------------------------------------------------------- */
+async function openModelViewerAR() {
+  await ensureModelLoaded();
+  playSpin();
+
+  if (!mv.canActivateAR) {
+    throw new Error('AR_NOT_AVAILABLE');
+  }
+
+  await mv.activateAR();
+  stopStartupWatchdog();
+  boot.classList.add('hide');
+}
+
+/* ----------------------------------------------------------
+   Fallback menu: always TWO options.
+---------------------------------------------------------- */
+function showFallback(message = 'Automatic AR could not continue.') {
+  stopStartupWatchdog();
+
+  boot.classList.remove('hide');
+  spinner.style.display = 'none';
+
+  title.textContent = 'Ready for augmented reality';
+  text.textContent = 'You can try augmented reality again or continue exploring Axiolo in 3D.';
+
+  startBtn.textContent = 'Open camera & start AR';
+  startBtn.classList.add('show');
+  startBtn.disabled = false;
+
+  view3dBtn.textContent = 'Continue in 3D';
+  view3dBtn.classList.add('show');
+  view3dBtn.disabled = false;
+
+  mini.textContent = message;
+  status.textContent = 'Choose AR or 3D';
+}
+
+/* ----------------------------------------------------------
+   Startup watchdog. It must NEVER leave the user indefinitely
+   on "Preparing the camera".
+---------------------------------------------------------- */
+function startStartupWatchdog() {
+  stopStartupWatchdog();
+
+  startupWatchdog = setTimeout(() => {
+    if (!boot.classList.contains('hide')) {
+      launchingAR = false;
+      showFallback('Startup is taking longer than expected. Choose AR or 3D to continue.');
+    }
+  }, 8000);
 }
 
 function stopStartupWatchdog() {
-  clearTimeout(startupWatchdog);
+  if (startupWatchdog) clearTimeout(startupWatchdog);
   startupWatchdog = null;
 }
 
-async function tryAutomaticAR() {
-  if (launchingAR || !isMobile || autoAttemptFinished) return;
+/* ----------------------------------------------------------
+   Automatic mobile flow:
+   1. camera permission
+   2. Android -> Scene Viewer immediately (NO browser GLB download)
+   3. iPhone -> load iOS GLB and activate AR
+   4. any failure -> two-button menu
+---------------------------------------------------------- */
+async function automaticStart() {
+  if (!isMobile || launchingAR) return;
+
   launchingAR = true;
+  startStartupWatchdog();
 
   title.textContent = 'Preparing the camera';
-  text.textContent = 'The experience will request camera access and then try to open augmented reality automatically.';
+  text.textContent = 'Allow camera access to start the augmented reality experience automatically.';
   spinner.style.display = 'block';
   startBtn.classList.remove('show');
   view3dBtn.classList.remove('show');
-  status.textContent = cameraPrimed ? 'Opening augmented reality…' : 'Requesting camera access…';
+  status.textContent = 'Requesting camera access…';
+
+  try {
+    if (!window.isSecureContext) {
+      throw new Error('HTTPS_REQUIRED');
+    }
+
+    await requestCameraPermission();
+
+    status.textContent = 'Camera ready · opening AR…';
+
+    if (isAndroid) {
+      // Critical performance fix: do not await ensureModelLoaded().
+      // Scene Viewer receives the public GLB URL and downloads it only once.
+      openAndroidSceneViewer({automatic:true});
+      return;
+    }
+
+    await openModelViewerAR();
+    launchingAR = false;
+  } catch (err) {
+    console.warn('Automatic AR start failed:', err);
+    launchingAR = false;
+
+    const msg = String(err?.message || err || '');
+
+    if (/NotAllowed|Permission|denied/i.test(msg)) {
+      showFallback('Camera permission was not granted. Allow camera access and try AR again.');
+    } else if (/HTTPS_REQUIRED/i.test(msg)) {
+      showFallback('AR requires a secure HTTPS connection.');
+    } else if (/MODEL_LOAD_FAILED/i.test(msg)) {
+      showFallback('The 3D model could not be loaded. You can retry AR or try the 3D view.');
+    } else {
+      showFallback('Automatic AR could not start on this device.');
+    }
+  }
+}
+
+/* ----------------------------------------------------------
+   Manual buttons
+---------------------------------------------------------- */
+startBtn.addEventListener('click', async () => {
+  if (launchingAR) return;
+  launchingAR = true;
+
+  startBtn.disabled = true;
+  view3dBtn.disabled = true;
 
   try {
     if (!window.isSecureContext) throw new Error('HTTPS_REQUIRED');
 
-    // Same first step as the clock experience.
     if (!cameraPrimed) {
+      title.textContent = 'Preparing the camera';
+      text.textContent = 'Allow camera access to continue.';
+      spinner.style.display = 'block';
       await requestCameraPermission();
     }
 
-    await waitModel();
-
-    // Make sure AxioloSpin is ready before AR starts.
-    try {
-      const animations = mv.availableAnimations || [];
-      if (animations.includes('AxioloSpin')) {
-        mv.animationName = 'AxioloSpin';
-        mv.currentTime = 0;
-        mv.play({repetitions: Infinity});
-      }
-    } catch(e) {}
-
     if (isAndroid) {
-      // Android native AR with the website link INSIDE Scene Viewer.
-      // This is attempted immediately after camera permission, mirroring
-      // the working clock flow as closely as possible.
-      const {intent} = buildSceneViewerUrls();
-
-      let leftPage = false;
-      const onVisibility = () => {
-        if (document.hidden) leftPage = true;
-      };
-      document.addEventListener('visibilitychange', onVisibility, {once:false});
-
-      window.location.href = intent;
-
-      // If Chrome/device refuses the automatic native launch, the page
-      // remains visible. In that case show the two approved fallback options.
-      setTimeout(() => {
-        document.removeEventListener('visibilitychange', onVisibility);
-        if (!leftPage && document.visibilityState === 'visible') {
-          autoAttemptFinished = true;
-          launchingAR = false;
-          showARFallback(new Error('ANDROID_AUTO_LAUNCH_BLOCKED'));
-        }
-      }, 1600);
-
+      // Direct user tap makes the native launch much more reliable.
+      openAndroidSceneViewer({automatic:false});
       return;
     }
 
-    if (!mv.canActivateAR) throw new Error('AR_NOT_AVAILABLE');
-
-    await mv.activateAR();
-    stopStartupWatchdog();
-    boot.classList.add('hide');
-    status.textContent = 'AR active · Axiolo rotates automatically';
+    await openModelViewerAR();
+    launchingAR = false;
   } catch (err) {
-    console.warn('Automatic AR attempt:', err);
-    autoAttemptFinished = true;
-    showARFallback(err);
+    console.warn('Manual AR start failed:', err);
+    launchingAR = false;
+    showFallback('AR could not be opened. You can retry or continue in 3D.');
   } finally {
-    if (!isAndroid) launchingAR = false;
-  }
-}
-
-function prepareUI() {
-  spinner.style.display = 'none';
-
-  if (!isMobile) {
-    title.textContent = 'Explore Axiolo in 3D';
-    text.textContent = 'Augmented reality is designed for compatible Android and Apple mobile devices.';
-    startBtn.textContent = 'Try AR anyway';
-    startBtn.classList.add('show');
-    view3dBtn.textContent = 'Continue in 3D';
-    view3dBtn.classList.add('show');
-    mini.textContent = 'On desktop, drag to rotate and use the wheel to zoom.';
-    status.textContent = '3D model ready';
-    return;
-  }
-
-  showARFallback(new Error('MANUAL_FALLBACK'));
-}
-
-startBtn.addEventListener('click', () => {
-  if (!window.isSecureContext) {
-    title.textContent = 'HTTPS is required';
-    text.textContent = 'Augmented reality must be opened from a secure HTTPS address.';
-    mini.textContent = 'Upload this folder to your HTTPS website and try again.';
-    view3dBtn.classList.add('show');
-    return;
-  }
-
-  if (isAndroid) {
-    openAndroidSceneViewer();
-  } else {
-    openAppleAR();
+    startBtn.disabled = false;
+    view3dBtn.disabled = false;
   }
 });
 
-view3dBtn.addEventListener('click', () => {
+view3dBtn.addEventListener('click', async () => {
   stopStartupWatchdog();
-  boot.classList.add('hide');
-  status.textContent = 'Axiolo rotates automatically · drag to rotate · pinch to zoom · tap to discover our website';
+
+  startBtn.disabled = false;
+  view3dBtn.disabled = true;
+
+  title.textContent = 'Loading Axiolo in 3D';
+  text.textContent = 'Downloading the 3D model…';
+  spinner.style.display = 'block';
+  mini.textContent = 'You can still open AR after the model finishes loading.';
+  status.textContent = 'Loading 3D model…';
+
+  try {
+    await ensureModelLoaded();
+    centerModel();
+    playSpin();
+
+    boot.classList.add('hide');
+    status.textContent = 'Axiolo rotates automatically · drag to rotate · pinch to zoom · tap to discover our website';
+
+    setTimeout(() => tapHint.classList.add('show'), 300);
+    setTimeout(() => tapHint.classList.remove('show'), 5400);
+  } catch (err) {
+    console.warn('3D load failed:', err);
+    showFallback('The 3D model could not be loaded. You can still retry augmented reality.');
+  } finally {
+    view3dBtn.disabled = false;
+  }
+});
+
+/* ----------------------------------------------------------
+   Model events
+---------------------------------------------------------- */
+mv.addEventListener('progress', (event) => {
+  const p = Math.round((event.detail?.totalProgress || 0) * 100);
+
+  if (mv.getAttribute('src') && !mv.loaded) {
+    status.textContent = `Loading 3D model… ${p}%`;
+
+    if (!boot.classList.contains('hide') && view3dBtn.disabled) {
+      text.textContent = `Downloading the 3D model… ${p}%`;
+    }
+  }
 });
 
 mv.addEventListener('load', () => {
   centerModel();
-
-  // AR rotation must come from the GLB itself.
-  try {
-    const animations = mv.availableAnimations || [];
-    if (animations.includes('AxioloSpin')) {
-      mv.animationName = 'AxioloSpin';
-      mv.currentTime = 0;
-      mv.play({repetitions: Infinity});
-    } else if (animations.length) {
-      mv.animationName = animations[0];
-      mv.currentTime = 0;
-      mv.play({repetitions: Infinity});
-    }
-  } catch (e) {
-    console.warn('No embedded GLB animation available:', e);
-  }
-
-  if (!isMobile) {
-    setTimeout(() => prepareUI(), 250);
-  }
-
-  setTimeout(() => tapHint.classList.add('show'), 350);
-  setTimeout(() => tapHint.classList.remove('show'), 5600);
+  playSpin();
 });
 
 mv.addEventListener('error', () => {
-  stopStartupWatchdog();
-  showARFallback(new Error('MODEL_LOAD_FAILED'));
+  modelLoadPromise = null;
+
+  // Do not interrupt native Android AR startup just because the optional
+  // browser 3D model failed. Only show fallback when the page is visible.
+  if (document.visibilityState === 'visible' && mv.getAttribute('src')) {
+    showFallback('The 3D model could not be loaded. You can still retry augmented reality.');
+  }
 });
 
-mv.addEventListener('ar-status', (ev) => {
-  const s = ev.detail?.status;
+mv.addEventListener('ar-status', (event) => {
+  const s = event.detail?.status;
 
   if (s === 'session-started') {
     stopStartupWatchdog();
     boot.classList.add('hide');
+    playSpin();
 
-    try {
-      const animations = mv.availableAnimations || [];
-      if (animations.includes('AxioloSpin')) {
-        mv.animationName = 'AxioloSpin';
-        mv.currentTime = 0;
-        mv.play({repetitions: Infinity});
-      }
-    } catch(e) {}
-
-    // Visible for WebXR/in-browser AR. Native Scene Viewer uses its own
-    // website button supplied through link=https://www.axiolo.com/.
+    // Used in WebXR/in-browser AR. Android native Scene Viewer gets
+    // its website action through link=https://www.axiolo.com/.
     arSiteButton?.classList.add('show');
 
-    status.textContent = 'AR active · Axiolo rotates automatically · move, rotate and scale';
+    status.textContent = 'AR active · Axiolo rotates automatically';
   } else if (s === 'object-placed') {
     arSiteButton?.classList.add('show');
     status.textContent = 'Axiolo placed · move, rotate and scale';
@@ -630,34 +698,74 @@ mv.addEventListener('ar-status', (ev) => {
     arSiteButton?.classList.remove('show');
   } else if (s === 'failed') {
     arSiteButton?.classList.remove('show');
-    showARFallback(new Error('AR_SESSION_FAILED'));
+    launchingAR = false;
+    showFallback('The AR session could not start. Try AR again or continue in 3D.');
   }
 });
 
-/* Safety fallback in case the load event is delayed */
-setTimeout(() => {
-  if (!mv.loaded && spinner.style.display !== 'none') {
-    text.textContent = 'Still loading the 3D model…';
-  }
-}, 5000);
+/* ----------------------------------------------------------
+   Tap model -> Axiolo website, without interfering with dragging.
+---------------------------------------------------------- */
+mv.addEventListener('pointerdown', (event) => {
+  pointerStart = event.target === mv
+    ? {x:event.clientX, y:event.clientY, time:Date.now()}
+    : null;
+});
 
+mv.addEventListener('pointerup', (event) => {
+  if (!pointerStart) return;
+
+  const distance = Math.hypot(
+    event.clientX - pointerStart.x,
+    event.clientY - pointerStart.y
+  );
+  const duration = Date.now() - pointerStart.time;
+  pointerStart = null;
+
+  if (event.target === mv && distance < 8 && duration < 400) {
+    window.location.href = AXIOLO_URL;
+  }
+});
+
+mv.addEventListener('pointercancel', () => {
+  pointerStart = null;
+});
+
+/* ----------------------------------------------------------
+   Desktop: load 3D immediately.
+   Android: intentionally DO NOT load the GLB in the browser on startup.
+   iPhone: model is needed for Quick Look/model-viewer AR.
+---------------------------------------------------------- */
+window.addEventListener('DOMContentLoaded', () => {
+  if (isMobile) {
+    setTimeout(automaticStart, 180);
+    return;
+  }
+
+  title.textContent = 'Loading Axiolo in 3D';
+  text.textContent = 'Downloading the interactive 3D model…';
+  spinner.style.display = 'block';
+
+  ensureModelLoaded()
+    .then(() => {
+      centerModel();
+      playSpin();
+      boot.classList.add('hide');
+      status.textContent = 'Drag to rotate · use the wheel to zoom · tap Axiolo to discover our website';
+    })
+    .catch(() => {
+      showFallback('The 3D model could not be loaded. You can still try AR on a compatible mobile device.');
+    });
+});
+
+/* If Android actually leaves for Scene Viewer, cancel browser timers. */
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && isMobile) {
+  if (document.hidden) {
+    stopStartupWatchdog();
+    clearTimeout(autoLaunchTimer);
     boot.classList.add('hide');
   }
 });
-
-
-window.addEventListener('DOMContentLoaded', () => {
-  if (!isMobile) return;
-
-  startStartupWatchdog();
-
-  // Clock-style flow:
-  // camera permission -> automatic AR attempt.
-  setTimeout(() => tryAutomaticAR(), 180);
-});
-
 </script>
 </body>
 </html>
