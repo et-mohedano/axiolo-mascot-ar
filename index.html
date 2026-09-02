@@ -37,6 +37,7 @@
     .hint{position:absolute;left:18px;bottom:18px;z-index:4;border-radius:999px;padding:8px 11px;background:rgba(255,255,255,.85);border:1px solid rgba(44,96,244,.13);color:var(--ink-soft);font-size:.65rem;font-weight:800;backdrop-filter:blur(10px);pointer-events:none}
     .ar-button{position:absolute;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:5;border:0;border-radius:15px;padding:13px 17px;background:var(--blue-gradient);color:#fff;font:inherit;font-size:.78rem;font-weight:900;cursor:pointer;box-shadow:0 12px 28px rgba(44,96,244,.25)}
     .ar-button span{color:#f08cff;margin-right:5px}.fallback{display:none;position:absolute;inset:auto 18px 76px 18px;z-index:6;background:#f8efff;border:1px solid rgba(217,44,255,.24);color:#492464;border-radius:14px;padding:12px 14px;font-size:.76rem;line-height:1.45}
+    .ar-native-prompt{position:absolute;left:50%;bottom:max(84px,calc(env(safe-area-inset-bottom) + 70px));transform:translateX(-50%);z-index:12;width:max-content;max-width:88vw;text-align:center;background:rgba(255,255,255,.96);color:var(--brand-deep);border:1px solid rgba(44,96,244,.20);padding:10px 14px;border-radius:14px;font-size:.72rem;font-weight:900;line-height:1.35;box-shadow:0 12px 30px rgba(0,0,0,.15);backdrop-filter:blur(12px)}
     .copy{padding:12px 2px}.kicker{font-size:.68rem;letter-spacing:.17em;text-transform:uppercase;font-weight:950;background:var(--brand-gradient);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:14px}
     .headline{font-size:clamp(2.8rem,6.2vw,6.3rem);line-height:.89;letter-spacing:-.065em;margin:0 0 22px;max-width:720px}.headline em{font-style:normal;background:var(--brand-gradient);-webkit-background-clip:text;background-clip:text;color:transparent}
     .lead{font-size:clamp(.98rem,1.5vw,1.14rem);line-height:1.72;color:var(--muted);max-width:620px;margin:0 0 24px}.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:0 0 24px}
@@ -53,6 +54,7 @@
 
     /* WebXR-only HTML overlay. This remains visible inside Chrome AR on Android. */
     .ar-webxr-overlay{display:none;position:absolute;inset:0;z-index:30;pointer-events:none;color:#fff}
+    model-viewer.ar-live > .ar-webxr-overlay{display:block}
     model-viewer[ar-status="session-started"] > .ar-webxr-overlay,
     model-viewer[ar-status="object-placed"] > .ar-webxr-overlay{display:block}
     .ar-brand-pill{position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;display:flex;align-items:center;gap:9px;background:rgba(2,14,124,.82);border:1px solid rgba(255,255,255,.20);padding:9px 12px;border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.18);backdrop-filter:blur(14px);font-size:.72rem;font-weight:900;letter-spacing:.02em}
@@ -100,9 +102,9 @@
         shadow-softness="0.85"
         exposure="1.05"
         environment-image="neutral"
-        camera-orbit="24deg 76deg auto"
-        min-camera-orbit="auto 45deg auto"
-        max-camera-orbit="auto 105deg auto"
+        camera-orbit="24deg 76deg 108%"
+        min-camera-orbit="auto 45deg 72%"
+        max-camera-orbit="auto 105deg 220%"
         min-field-of-view="20deg"
         max-field-of-view="50deg"
         ar
@@ -111,6 +113,7 @@
         ar-scale="auto">
 
         <button class="ar-button" slot="ar-button" aria-label="View Axiolo in augmented reality"><span>◈</span> View in AR</button>
+        <div class="ar-native-prompt" slot="ar-prompt">Move your phone slowly to detect a flat surface</div>
         <button class="exit-webxr" slot="exit-webxr-ar-button" aria-label="Exit augmented reality">×</button>
 
         <!-- HTML below stays inside WebXR on Android. It cannot be carried into native Scene Viewer / Quick Look. -->
@@ -135,7 +138,7 @@
       <div class="steps">
         <div class="step"><span class="step-num">1</span><span>Rotate, zoom and explore the mascot directly in your browser.</span></div>
         <div class="step"><span class="step-num">2</span><span>Tap <b>View in AR</b> on a compatible iPhone or Android device.</span></div>
-        <div class="step"><span class="step-num">3</span><span>On Android WebXR, instructions and the <b>Visit Axiolo</b> button remain visible while AR is active.</span></div>
+        <div class="step"><span class="step-num">3</span><span>On Android, Chrome uses WebXR when available so the instructions and <b>Visit Axiolo</b> button can remain visible; otherwise it falls back to the native AR viewer.</span></div>
         <div class="step"><span class="step-num">4</span><span>Visit Axiolo to learn how its team connects marketing strategy with execution.</span></div>
       </div>
       <div class="cta-row">
@@ -143,7 +146,7 @@
         <button class="secondary" id="reset-view">↻ Reset view</button>
         <a class="link-button" href="https://www.axiolo.com/" target="_blank" rel="noopener noreferrer">Discover Axiolo ↗</a>
       </div>
-      <div class="mini">For the full branded overlay on Android, use Chrome with ARCore and publish through HTTPS. iPhone opens Apple Quick Look; if you add <b>assets/axiolo-mascot.usdz</b>, this page automatically configures a native “Visit Axiolo” Quick Look action.</div>
+      <div class="mini">For the branded in-camera overlay on Android, Chrome must support WebXR; otherwise this version automatically falls back to the native Android AR viewer. iPhone opens Apple Quick Look; if you add <b>assets/axiolo-mascot.usdz</b>, this page automatically configures a native “Visit Axiolo” Quick Look action.</div>
     </section>
   </main>
 
@@ -158,8 +161,8 @@
     <h2 id="bootTitle">Preparing the AR experience</h2>
     <p id="bootText">We’ll try to open augmented reality. On some phones, one tap is required before the camera can start.</p>
     <div class="spinner" id="spinner"></div>
-    <button class="boot-action" id="startBtn">Open camera and start AR</button>
-    <div class="boot-mini" id="bootMini">Camera and WebXR access require HTTPS on a real phone.</div>
+    <button class="boot-action" id="startBtn">Open camera & start AR</button>
+    <div class="boot-mini" id="bootMini">AR requires HTTPS. On Android, Chrome will use WebXR when available and fall back to the Android AR viewer.</div>
   </div>
 </div>
 
@@ -177,24 +180,28 @@ const hint = document.getElementById('hint');
 const tapHint = document.getElementById('tapHint');
 const arGuide = document.getElementById('arGuide');
 const arControlsText = document.getElementById('arControlsText');
-let launching = false;
 let pointerStart = null;
+let initialCameraTarget = null;
+let arStarted = false;
+let forceAndroidNative = false;
 
 const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isAndroid = /Android/i.test(navigator.userAgent);
 const isMobile = isIOS || isAndroid || /Mobile/i.test(navigator.userAgent) || matchMedia('(pointer:coarse)').matches;
 
-// Android: keep AR inside Chrome WebXR so the instructions + CTA stay visible.
-// iOS: Quick Look is the native AR route.
-if (isAndroid) mv.setAttribute('ar-modes', 'webxr');
+// IMPORTANT: do not force Android to WebXR-only. The previous v2 did that and devices
+// without an available immersive WebXR session simply fell back to the normal page.
+// We keep WebXR first so branded instructions can stay visible, and Scene Viewer second
+// so compatible Android phones still have a native AR fallback.
+if (isAndroid) mv.setAttribute('ar-modes', 'webxr scene-viewer');
 if (isIOS) mv.setAttribute('ar-modes', 'quick-look');
 
-// Prefer the normalized GLB when present.
+// Prefer an iOS-normalized GLB when it exists.
 fetch('assets/axiolo-mascot-ios.glb', {method:'HEAD', cache:'no-store'})
   .then(r => { if (r.ok) mv.src = 'assets/axiolo-mascot-ios.glb'; })
   .catch(() => {});
 
-// If a dedicated USDZ is present, add an Apple Quick Look native action banner.
+// Optional dedicated USDZ for the best iPhone Quick Look experience.
 fetch('assets/axiolo-mascot.usdz', {method:'HEAD', cache:'no-store'})
   .then(r => {
     if (!r.ok) return;
@@ -214,59 +221,147 @@ function playEmbeddedSpin(){
   } catch(e) {}
 }
 
-function waitForModel(){
-  if (mv.loaded) return Promise.resolve();
-  return new Promise((resolve,reject) => {
-    const ok = () => { cleanup(); resolve(); };
-    const bad = () => { cleanup(); reject(new Error('The 3D model could not be loaded.')); };
-    const cleanup = () => { mv.removeEventListener('load',ok); mv.removeEventListener('error',bad); };
-    mv.addEventListener('load',ok,{once:true});
-    mv.addEventListener('error',bad,{once:true});
-  });
-}
-
-function showStartButton(message, detail){
-  bootTitle.textContent = 'Ready to open the camera';
-  bootText.textContent = message || 'Tap the button to start the augmented reality experience.';
-  spinner.style.display = 'none';
-  startBtn.classList.add('show');
-  bootMini.textContent = detail || (isAndroid ? 'For the in-AR instructions and Axiolo button, use Chrome on Android.' : 'Safari will open Apple Quick Look on iPhone/iPad.');
-}
-
-async function launchAR(){
-  if (launching) return;
-  launching = true;
-  startBtn.disabled = true;
+// Explicitly calculate the mascot bounding-box center instead of depending on the GLB origin.
+// A small upward camera target offset makes the mascot sit visually in the vertical center
+// of the card instead of floating too high.
+function centerPreviewModel(){
   try {
-    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') throw new Error('AR requires HTTPS.');
-    await waitForModel();
-    playEmbeddedSpin();
-    if (!mv.canActivateAR) throw new Error('AR is not available on this device/browser.');
-    await mv.activateAR();
-    boot.classList.add('hide');
-  } catch (err) {
-    console.warn('AR launch:', err);
-    const msg = String(err?.message || err || '');
-    if (/HTTPS|secure/i.test(msg)) showStartButton('The camera can only start from a secure site.', 'Publish this folder over HTTPS, then open it again on your phone.');
-    else if (/not available|AR is not/i.test(msg)) showStartButton('This browser cannot start the selected AR mode.', isAndroid ? 'Use current Chrome + Google Play Services for AR (ARCore).' : 'Use Safari on a compatible iPhone/iPad.');
-    else showStartButton('Your browser needs a tap before it can open augmented reality.');
-  } finally {
-    launching = false;
-    startBtn.disabled = false;
+    const center = mv.getBoundingBoxCenter();
+    const size = mv.getDimensions();
+    const y = center.y + (size.y * 0.075);
+    initialCameraTarget = `${center.x}m ${y}m ${center.z}m`;
+    mv.cameraTarget = initialCameraTarget;
+    mv.cameraOrbit = '24deg 76deg 108%';
+    mv.fieldOfView = 'auto';
+    requestAnimationFrame(() => {
+      try { mv.jumpCameraToGoal(); } catch(e) {}
+    });
+  } catch(e) {
+    // Safe fallback if an older model-viewer build does not expose bounds yet.
+    mv.cameraOrbit = '24deg 76deg 108%';
   }
 }
 
-startBtn.addEventListener('click', () => launchAR());
-document.getElementById('open-ar').addEventListener('click', () => launchAR());
+function secureEnough(){
+  return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+}
 
+function setLauncherReady(message){
+  bootTitle.textContent = 'Ready for augmented reality';
+  bootText.textContent = message || 'Tap once to open Axiolo in your camera.';
+  spinner.style.display = 'none';
+  startBtn.textContent = isIOS ? 'Open Axiolo in AR' : 'Open camera & start AR';
+  startBtn.classList.add('show');
+  startBtn.disabled = false;
+  bootMini.textContent = isAndroid
+    ? 'Chrome will try WebXR first and automatically fall back to the Android AR viewer when needed.'
+    : 'Safari will open Apple Quick Look on a compatible iPhone or iPad.';
+}
+
+function setLauncherError(message, detail){
+  boot.classList.remove('hide');
+  bootTitle.textContent = 'AR needs one more step';
+  bootText.textContent = message;
+  spinner.style.display = 'none';
+  startBtn.classList.add('show');
+  startBtn.disabled = false;
+  bootMini.textContent = detail || '';
+}
+
+function androidSceneViewerIntent(){
+  const src = mv.getAttribute('src') || 'assets/axiolo-mascot.glb';
+  const modelUrl = new URL(src, location.href).href;
+  const pageUrl = location.href.split('#')[0];
+  return 'intent://arvr.google.com/scene-viewer/1.0?file=' + encodeURIComponent(modelUrl) +
+    '&mode=ar_preferred&resizable=true&title=' + encodeURIComponent('Axiolo') +
+    '#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;' +
+    'S.browser_fallback_url=' + encodeURIComponent(pageUrl) + ';end;';
+}
+
+function openAndroidNativeFallback(){
+  if (!isAndroid) return false;
+  try {
+    // This must run directly from a user click to avoid Chrome blocking the external intent.
+    window.location.href = androidSceneViewerIntent();
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// This is intentionally NOT async. Calling activateAR immediately inside the user's click
+// preserves the browser's transient user activation. Awaiting model load/camera permission
+// before activateAR is a common reason Android returns to the normal page instead of opening AR.
+function launchARFromGesture(){
+  if (!secureEnough()) {
+    setLauncherError('The camera can only open from a secure website.', 'Publish this folder through HTTPS and try again.');
+    return;
+  }
+  if (!mv.loaded) {
+    bootTitle.textContent = 'Finishing the 3D model';
+    bootText.textContent = 'Please wait a moment, then tap the button again.';
+    return;
+  }
+
+  startBtn.disabled = true;
+  playEmbeddedSpin();
+
+  if (forceAndroidNative && isAndroid) {
+    startBtn.disabled = false;
+    openAndroidNativeFallback();
+    return;
+  }
+
+  if (!mv.canActivateAR) {
+    if (isAndroid && openAndroidNativeFallback()) {
+      startBtn.disabled = false;
+      return;
+    }
+    setLauncherError('AR is not available in this browser.', isAndroid ? 'Use current Chrome and make sure Google Play Services for AR is installed.' : 'Use Safari on a compatible iPhone or iPad.');
+    return;
+  }
+
+  try {
+    const result = mv.activateAR();
+    if (result && typeof result.catch === 'function') {
+      result.catch(err => {
+        console.warn('model-viewer AR launch failed:', err);
+        startBtn.disabled = false;
+        if (isAndroid) {
+          forceAndroidNative = true;
+          startBtn.textContent = 'Open with Android AR viewer';
+          setLauncherError('Chrome could not start WebXR on this phone.', 'Tap again to open the native Android AR viewer instead.');
+        } else {
+          setLauncherError('The AR viewer could not open.', 'Tap the button to try again.');
+        }
+      });
+    }
+  } catch(err) {
+    console.warn('AR launch error:', err);
+    startBtn.disabled = false;
+    if (isAndroid) {
+      forceAndroidNative = true;
+      startBtn.textContent = 'Open with Android AR viewer';
+      setLauncherError('Chrome could not start WebXR on this phone.', 'Tap again to open the native Android AR viewer instead.');
+    } else {
+      setLauncherError('The AR viewer could not open.', 'Tap the button to try again.');
+    }
+  }
+}
+
+startBtn.addEventListener('click', launchARFromGesture);
+document.getElementById('open-ar').addEventListener('click', launchARFromGesture);
+
+// Reset now returns to the corrected, centered framing.
 document.getElementById('reset-view').addEventListener('click', () => {
   try {
-    mv.cameraOrbit = '24deg 76deg auto';
+    if (initialCameraTarget) mv.cameraTarget = initialCameraTarget;
+    mv.cameraOrbit = '24deg 76deg 108%';
     mv.fieldOfView = 'auto';
     mv.jumpCameraToGoal();
     mv.autoRotate = true;
     playEmbeddedSpin();
-    hint.textContent = 'View reset · automatic rotation enabled';
+    hint.textContent = 'View centered · automatic rotation enabled';
     setTimeout(() => hint.textContent = 'Axiolo rotates automatically when you are not interacting', 1800);
   } catch(e) {}
 });
@@ -280,55 +375,88 @@ mv.addEventListener('pointerup', (e) => {
   const dx=e.clientX-pointerStart.x, dy=e.clientY-pointerStart.y;
   const distance=Math.hypot(dx,dy), duration=Date.now()-pointerStart.time;
   pointerStart=null;
-  if (e.target === mv && distance < 8 && duration < 400 && mv.getAttribute('ar-status') !== 'session-started' && mv.getAttribute('ar-status') !== 'object-placed') {
-    window.location.href = AXIOLO_URL;
-  }
+  if (e.target === mv && distance < 8 && duration < 400 && !arStarted) window.location.href = AXIOLO_URL;
 });
 mv.addEventListener('pointercancel', () => pointerStart=null);
 
 mv.addEventListener('load', () => {
   fallback.style.display='none';
+  centerPreviewModel();
   playEmbeddedSpin();
+
+  if (isMobile) {
+    // We prepare everything first; then the user's single tap is used directly for AR activation.
+    // This is substantially more reliable than consuming the gesture on getUserMedia/waitForModel.
+    setLauncherReady('Tap once to open the camera and place Axiolo in your space.');
+  } else {
+    bootTitle.textContent='3D preview ready';
+    bootText.textContent='Explore Axiolo here, or open this page on a compatible phone for augmented reality.';
+    spinner.style.display='none';
+    startBtn.textContent='Try AR anyway';
+    startBtn.classList.add('show');
+  }
 });
-mv.addEventListener('error', () => { fallback.style.display='block'; });
+
+mv.addEventListener('error', () => {
+  fallback.style.display='block';
+  setLauncherError('The 3D model could not be loaded.', 'Check that assets/axiolo-mascot.glb exists and is being served with model/gltf-binary.');
+});
 
 mv.addEventListener('ar-status', (ev) => {
   const s = ev.detail?.status;
   if (s === 'session-started') {
+    arStarted = true;
+    startBtn.disabled = false;
     boot.classList.add('hide');
+    mv.classList.add('ar-live');
     arGuide.textContent = 'Move your phone slowly to detect a flat surface.';
     arControlsText.textContent = 'Scan the area first. Once placed, pinch to resize and drag to reposition.';
   } else if (s === 'object-placed') {
+    arStarted = true;
+    boot.classList.add('hide');
+    mv.classList.add('ar-live');
     arGuide.textContent = 'Axiolo is placed. Walk around it, resize it, or move it whenever you want.';
     arControlsText.textContent = 'Pinch to resize · drag to move · walk around the mascot to explore every angle.';
     playEmbeddedSpin();
+  } else if (s === 'not-presenting') {
+    arStarted = false;
+    mv.classList.remove('ar-live');
+    startBtn.disabled = false;
   } else if (s === 'failed') {
-    showStartButton('AR could not start. Tap to try again.', isAndroid ? 'Use Chrome + ARCore and make sure the page is served through HTTPS.' : 'Use Safari on a compatible iPhone/iPad.');
+    arStarted = false;
+    mv.classList.remove('ar-live');
+    startBtn.disabled = false;
+    if (isAndroid) {
+      forceAndroidNative = true;
+      startBtn.textContent = 'Open with Android AR viewer';
+      setLauncherError('WebXR could not start on this phone.', 'Tap again to use the native Android AR viewer.');
+    } else {
+      setLauncherError('AR could not start.', 'Tap to try again.');
+    }
   }
 });
 
-// Apple Quick Look native CTA: when tapped, return to the website and open Axiolo.
-mv.addEventListener('quick-look-button-tapped', () => {
-  window.location.href = AXIOLO_URL;
-});
+mv.addEventListener('quick-look-button-tapped', () => { window.location.href = AXIOLO_URL; });
 
 if (tapHint) {
   setTimeout(() => tapHint.classList.add('show'), 350);
   setTimeout(() => tapHint.classList.remove('show'), 5200);
 }
 
+// Safety net: if model-viewer is already loaded from cache before the load listener is attached.
 window.addEventListener('DOMContentLoaded', () => {
-  if (!isMobile) {
-    bootTitle.textContent='3D preview ready';
-    bootText.textContent='Augmented reality is designed for a compatible phone or tablet. You can explore the 3D mascot here.';
-    spinner.style.display='none';
-    startBtn.textContent='Try AR anyway';
-    startBtn.classList.add('show');
-    return;
+  if (mv.loaded) {
+    centerPreviewModel();
+    playEmbeddedSpin();
+    if (isMobile) setLauncherReady('Tap once to open the camera and place Axiolo in your space.');
   }
-  // Keep the same behavior as the supplied experience: try automatically first;
-  // browsers that require user activation fall back to the one-tap launcher.
-  setTimeout(() => launchAR(), 220);
+  // If loading is unusually slow, keep the preparation dialog instead of dropping the user onto the page.
+  setTimeout(() => {
+    if (isMobile && !mv.loaded) {
+      bootTitle.textContent = 'Loading Axiolo';
+      bootText.textContent = 'The 3D model is still loading. The AR button will appear as soon as it is ready.';
+    }
+  }, 1800);
 });
 </script>
 </body>
