@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="42%" r="68%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#e9e9e4"/></radialGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#g)"/>
+  <g transform="translate(510 300)">
+    <rect width="180" height="180" rx="44" fill="#10131a"/>
+    <path d="M38 121 77 78l23 23 42-52" fill="none" stroke="#ff6b3d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M121 50h21v21" fill="none" stroke="#ff6b3d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="600" y="570" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="800" fill="#10131a">AXIOLO</text>
+  <text x="600" y="625" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600" fill="#6e7380">Interactive 3D + AR Experience</text>
+</svg>

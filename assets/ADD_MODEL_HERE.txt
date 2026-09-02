@@ -1,0 +1,10 @@
+The original attachment could not be mounted into the build environment during this run.
+Place the supplied model here as:
+
+axiolo-mascot.glb
+
+Then, for the iPhone-normalized version, run from the project root:
+
+python tools/normalize_glb_for_ios.py assets/axiolo-mascot.glb assets/axiolo-mascot-ios.glb
+
+The webpage will automatically prefer axiolo-mascot-ios.glb when it exists and fall back to axiolo-mascot.glb otherwise.

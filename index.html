@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#10131a" />
+  <meta name="description" content="Meet Axiolo through an interactive 3D and augmented reality experience." />
+  <title>Meet Axiolo · 3D + AR Experience</title>
+  <link rel="icon" href="assets/axiolo-mark.svg" type="image/svg+xml" />
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js"></script>
+  <style>
+    :root{
+      --ink:#10131a;
+      --ink-soft:#252a35;
+      --paper:#f7f7f4;
+      --paper-2:#eeeeea;
+      --white:#fff;
+      --muted:#6e7380;
+      --line:rgba(16,19,26,.10);
+      --accent:#ff6b3d;
+      --accent-2:#ff9c72;
+      --accent-soft:#fff0e9;
+      --shadow:0 24px 70px rgba(16,19,26,.12);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:#ecece8}
+    body{min-height:100dvh}
+    a{color:inherit}
+    button,a.button{font:inherit}
+    .shell{
+      min-height:100dvh;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      position:relative;
+      isolation:isolate;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 84% 8%,rgba(255,107,61,.18),transparent 28%),
+        radial-gradient(circle at 8% 88%,rgba(16,19,26,.08),transparent 32%),
+        linear-gradient(145deg,#fbfbf8,#efefeb 58%,#e7e7e2);
+    }
+    .shell::before{
+      content:"";position:absolute;inset:0;z-index:-1;opacity:.34;
+      background-image:linear-gradient(rgba(16,19,26,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(16,19,26,.045) 1px,transparent 1px);
+      background-size:34px 34px;
+      mask-image:linear-gradient(to bottom,#000,transparent 80%);
+    }
+    header{
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+      padding:max(16px,env(safe-area-inset-top)) clamp(18px,4vw,48px) 14px;
+      position:relative;z-index:5;
+    }
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .mark{width:50px;height:50px;display:grid;place-items:center;border-radius:15px;background:rgba(255,255,255,.78);border:1px solid var(--line);box-shadow:0 8px 30px rgba(16,19,26,.08);backdrop-filter:blur(14px)}
+    .mark img{width:36px;height:36px;object-fit:contain}
+    .brand-copy{min-width:0}
+    .eyebrow{font-size:.65rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+    h1{font-size:clamp(1.02rem,3vw,1.35rem);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{border:1px solid rgba(16,19,26,.12);background:rgba(255,255,255,.68);backdrop-filter:blur(12px);border-radius:999px;padding:9px 12px;font-size:.67rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+    main{
+      width:min(1260px,100%);margin:0 auto;
+      display:grid;grid-template-columns:minmax(0,1.18fr) minmax(330px,.82fr);gap:clamp(20px,4vw,52px);
+      align-items:center;padding:10px clamp(18px,4vw,48px) 28px;
+    }
+    .viewer-card{
+      position:relative;height:min(72dvh,720px);min-height:480px;border-radius:30px;overflow:hidden;
+      background:linear-gradient(160deg,#ffffff,#f0f0ec);
+      border:1px solid rgba(16,19,26,.08);box-shadow:var(--shadow);
+    }
+    model-viewer{width:100%;height:100%;--poster-color:transparent;background:radial-gradient(circle at 50% 42%,#fff 0,#f3f3ef 46%,#e8e8e3 100%)}
+    .viewer-note{position:absolute;left:18px;top:18px;z-index:4;border-radius:999px;padding:8px 11px;background:rgba(16,19,26,.72);color:#fff;font-size:.67rem;font-weight:800;backdrop-filter:blur(10px);pointer-events:none}
+    .hint{position:absolute;left:18px;bottom:18px;z-index:4;border-radius:999px;padding:8px 11px;background:rgba(255,255,255,.85);border:1px solid rgba(16,19,26,.08);color:var(--ink-soft);font-size:.65rem;font-weight:800;backdrop-filter:blur(10px);pointer-events:none}
+    .ar-button{position:absolute;right:18px;bottom:max(18px,env(safe-area-inset-bottom));z-index:5;border:0;border-radius:15px;padding:13px 17px;background:var(--ink);color:#fff;font:inherit;font-size:.78rem;font-weight:900;cursor:pointer;box-shadow:0 12px 28px rgba(16,19,26,.22)}
+    .ar-button span{color:var(--accent);margin-right:5px}
+    .ar-prompt{position:absolute;left:50%;bottom:82px;transform:translateX(-50%);white-space:nowrap;background:rgba(255,255,255,.96);color:var(--ink);padding:9px 12px;border-radius:12px;border:1px solid rgba(16,19,26,.08);font-size:.68rem;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.1)}
+    .fallback{display:none;position:absolute;inset:auto 18px 76px 18px;z-index:6;background:#fff3ef;border:1px solid rgba(255,107,61,.28);color:#6d2d1d;border-radius:14px;padding:12px 14px;font-size:.76rem;line-height:1.45}
+    .copy{padding:12px 2px}
+    .kicker{font-size:.68rem;letter-spacing:.17em;text-transform:uppercase;font-weight:950;color:var(--accent);margin-bottom:14px}
+    .headline{font-size:clamp(2.8rem,6.2vw,6.3rem);line-height:.89;letter-spacing:-.065em;margin:0 0 22px;max-width:720px}
+    .headline em{font-style:normal;color:var(--accent)}
+    .lead{font-size:clamp(.98rem,1.5vw,1.14rem);line-height:1.72;color:var(--muted);max-width:620px;margin:0 0 24px}
+    .steps{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:0 0 24px}
+    .step{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:.84rem;line-height:1.45;color:var(--ink-soft)}
+    .step-num{flex:0 0 auto;width:23px;height:23px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-size:.68rem;font-weight:950}
+    .cta-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .primary,.secondary,.link-button{appearance:none;border:0;border-radius:14px;padding:13px 18px;font:inherit;font-size:.82rem;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+    .primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 12px 26px rgba(255,107,61,.24)}
+    .secondary{background:rgba(255,255,255,.72);border:1px solid var(--line);color:var(--ink);backdrop-filter:blur(10px)}
+    .link-button{background:var(--ink);color:#fff}
+    .mini{margin-top:16px;font-size:.7rem;line-height:1.55;color:var(--muted)}
+    footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px clamp(18px,4vw,48px) max(16px,env(safe-area-inset-bottom));font-size:.67rem;color:#858994}
+    footer strong{color:var(--ink-soft)}
+    @media(max-width:960px){
+      main{grid-template-columns:1fr;align-items:start;padding-top:4px;gap:26px}
+      .viewer-card{height:min(58dvh,620px);min-height:420px}
+      .copy{padding-bottom:8px}.headline{font-size:clamp(2.7rem,10vw,5.3rem);max-width:none}.lead{max-width:none}
+    }
+    @media(max-width:620px){
+      header{padding-left:12px;padding-right:12px}.mark{width:44px;height:44px;border-radius:12px}.mark img{width:32px;height:32px}.badge{display:none}
+      main{padding-left:12px;padding-right:12px;gap:20px}.viewer-card{height:56dvh;min-height:390px;border-radius:22px}.viewer-note{left:12px;top:12px;font-size:.61rem}.hint{display:none}.ar-button{right:12px;bottom:max(12px,env(safe-area-inset-bottom))}
+      .headline{font-size:clamp(2.4rem,13vw,4.3rem)}.lead{margin-bottom:18px}.steps{grid-template-columns:1fr;gap:6px}.cta-row>*{flex:1 1 145px}
+      footer{padding-left:16px;padding-right:16px;align-items:flex-start;flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand">
+      <div class="mark"><img src="assets/axiolo-mark.svg" alt="Axiolo" /></div>
+      <div class="brand-copy"><div class="eyebrow">Interactive experience</div><h1>Axiolo · 3D + Augmented Reality</h1></div>
+    </div>
+    <div class="badge">WebAR · iOS + Android</div>
+  </header>
+
+  <main>
+    <section class="viewer-card" aria-label="Interactive 3D viewer of the Axiolo mascot">
+      <div class="viewer-note">Drag to explore · pinch to zoom</div>
+      <model-viewer
+        id="axiolo3d"
+        src="assets/axiolo-mascot.glb"
+        alt="Axiolo mascot in 3D"
+        poster="assets/axiolo-poster.svg"
+        camera-controls
+        touch-action="pan-y"
+        interaction-prompt="none"
+        auto-rotate
+        auto-rotate-delay="650"
+        rotation-per-second="12deg"
+        shadow-intensity="1.15"
+        shadow-softness="0.85"
+        exposure="1.05"
+        environment-image="neutral"
+        camera-orbit="24deg 76deg auto"
+        min-camera-orbit="auto 45deg auto"
+        max-camera-orbit="auto 105deg auto"
+        min-field-of-view="20deg"
+        max-field-of-view="50deg"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        ar-placement="floor"
+        ar-scale="auto"
+        ios-src="">
+        <button class="ar-button" slot="ar-button" aria-label="View Axiolo in augmented reality"><span>◈</span> View in AR</button>
+        <div class="ar-prompt" slot="ar-prompt">Move your phone to detect a surface</div>
+      </model-viewer>
+      <div class="hint" id="hint">Axiolo rotates automatically when you are not interacting</div>
+      <div class="fallback" id="fallback">The 3D model could not be loaded. Make sure this folder is served over HTTP/HTTPS and that <b>assets/axiolo-mascot.glb</b> or its iOS-normalized version is present.</div>
+    </section>
+
+    <section class="copy">
+      <div class="kicker">Meet Axiolo</div>
+      <h2 class="headline">Marketing meets <em>engineering.</em></h2>
+      <p class="lead">Explore the Axiolo mascot in 3D, place it in your space with augmented reality, and discover the team behind practical B2B growth execution.</p>
+      <div class="steps">
+        <div class="step"><span class="step-num">1</span><span>Rotate, zoom and explore the mascot directly in your browser.</span></div>
+        <div class="step"><span class="step-num">2</span><span>Tap <b>View in AR</b> on a compatible iPhone or Android device.</span></div>
+        <div class="step"><span class="step-num">3</span><span>Move the model, resize it and view it from any angle in your space.</span></div>
+        <div class="step"><span class="step-num">4</span><span>Visit Axiolo to learn how its team connects marketing strategy with execution.</span></div>
+      </div>
+      <div class="cta-row">
+        <button class="primary" id="open-ar">◈ Open AR</button>
+        <button class="secondary" id="reset-view">↻ Reset view</button>
+        <a class="link-button" href="https://www.axiolo.com/" target="_blank" rel="noopener noreferrer">Discover Axiolo ↗</a>
+      </div>
+      <div class="mini">No app installation required. For augmented reality, publish this folder through HTTPS. iPhone uses Apple Quick Look; Android uses WebXR or Scene Viewer when available.</div>
+    </section>
+  </main>
+
+  <footer>
+    <span><strong>Axiolo 3D Experience</strong> · mobile-first WebAR</span>
+    <span>GLB · &lt;model-viewer&gt; · iOS / Android</span>
+  </footer>
+</div>
+
+<script>
+  const mv = document.getElementById('axiolo3d');
+  const fallback = document.getElementById('fallback');
+  const hint = document.getElementById('hint');
+
+  // Prefer the iOS-normalized GLB when available, otherwise use the original model.
+  fetch('assets/axiolo-mascot-ios.glb', {method:'HEAD', cache:'no-store'})
+    .then(r => { if (r.ok) mv.src = 'assets/axiolo-mascot-ios.glb'; })
+    .catch(() => {});
+
+  function playEmbeddedSpin(){
+    try {
+      const names = mv.availableAnimations || [];
+      if (names.includes('AxioloSpin')) {
+        mv.animationName = 'AxioloSpin';
+        mv.currentTime = 0;
+        mv.play({repetitions: Infinity});
+      }
+    } catch(e) {}
+  }
+
+  mv.addEventListener('load', () => {
+    fallback.style.display = 'none';
+    playEmbeddedSpin();
+  });
+
+  mv.addEventListener('error', () => { fallback.style.display = 'block'; });
+
+  mv.addEventListener('ar-status', (event) => {
+    if (event.detail.status === 'failed') {
+      hint.textContent = 'AR is unavailable here, but you can keep exploring the 3D model.';
+    }
+  });
+
+  document.getElementById('open-ar').addEventListener('click', async () => {
+    try { await mv.activateAR(); }
+    catch (e) { alert('Augmented reality is not available in this browser or device. You can still explore the model in 3D.'); }
+  });
+
+  document.getElementById('reset-view').addEventListener('click', () => {
+    try {
+      mv.cameraOrbit = '24deg 76deg auto';
+      mv.fieldOfView = 'auto';
+      mv.jumpCameraToGoal();
+      mv.autoRotate = true;
+      playEmbeddedSpin();
+      hint.textContent = 'View reset · automatic rotation enabled';
+      setTimeout(() => hint.textContent = 'Axiolo rotates automatically when you are not interacting', 1800);
+    } catch(e) {}
+  });
+
+  // If a dedicated USDZ is later added, use it automatically on iOS.
+  fetch('assets/axiolo-mascot.usdz', {method:'HEAD', cache:'no-store'})
+    .then(r => { if (r.ok) mv.setAttribute('ios-src','assets/axiolo-mascot.usdz'); else mv.removeAttribute('ios-src'); })
+    .catch(() => mv.removeAttribute('ios-src'));
+</script>
+</body>
+</html>

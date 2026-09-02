@@ -1,0 +1,12 @@
+# Recommended MIME types for WebAR assets (Apache)
+AddType model/gltf-binary .glb
+AddType model/vnd.usdz+zip .usdz
+AddType image/webp .webp
+AddType image/avif .avif
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  <FilesMatch "\.(glb|usdz)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
