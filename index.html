@@ -143,6 +143,34 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
 }
 .tap-hint.show{opacity:1}
 
+
+.ar-site-button{
+  position:absolute;
+  left:50%;
+  bottom:max(18px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  z-index:2147483000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  min-width:190px;
+  max-width:88vw;
+  padding:13px 18px;
+  border:1px solid rgba(255,255,255,.46);
+  border-radius:999px;
+  background:linear-gradient(100deg,var(--magenta),var(--violet) 46%,var(--blue));
+  color:#fff;
+  text-decoration:none;
+  font:inherit;
+  font-size:.79rem;
+  font-weight:900;
+  letter-spacing:.01em;
+  box-shadow:0 14px 34px rgba(16,29,120,.32);
+  backdrop-filter:blur(12px);
+  pointer-events:auto;
+}
+.ar-site-button.show{display:flex}
+
 .web-visit{
   position:fixed;
   right:14px;
@@ -193,6 +221,16 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
   ar-modes="webxr scene-viewer quick-look"
   ar-placement="floor"
   ar-scale="auto">
+
+  <a
+    id="arSiteButton"
+    class="ar-site-button"
+    href="https://www.axiolo.com/"
+    target="_blank"
+    rel="noopener"
+    aria-label="Discover our website">
+    Discover our website ↗
+  </a>
 </model-viewer>
 
 <div class="status" id="status">Preparing the 3D experience…</div>
@@ -228,6 +266,7 @@ const view3dBtn = document.getElementById('view3dBtn');
 const mini = document.getElementById('mini');
 const status = document.getElementById('status');
 const tapHint = document.getElementById('tapHint');
+const arSiteButton = document.getElementById('arSiteButton');
 
 const isAndroid = /Android/i.test(navigator.userAgent);
 const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
@@ -398,12 +437,31 @@ async function requestCameraPermission() {
   cameraPrimed = true;
 }
 
+
+let startupWatchdog = null;
+
+function startStartupWatchdog() {
+  clearTimeout(startupWatchdog);
+  startupWatchdog = setTimeout(() => {
+    if (!boot.classList.contains('hide') && isMobile) {
+      autoAttemptFinished = true;
+      launchingAR = false;
+      showARFallback(new Error('MODEL_LOADING_TIMEOUT'));
+    }
+  }, 9000);
+}
+
+function stopStartupWatchdog() {
+  clearTimeout(startupWatchdog);
+  startupWatchdog = null;
+}
+
 async function tryAutomaticAR() {
   if (launchingAR || !isMobile || autoAttemptFinished) return;
   launchingAR = true;
 
   title.textContent = 'Preparing the camera';
-  text.textContent = 'The experience will request camera access and then try to enter augmented reality automatically.';
+  text.textContent = 'The experience will request camera access and then try to open augmented reality automatically.';
   spinner.style.display = 'block';
   startBtn.classList.remove('show');
   view3dBtn.classList.remove('show');
@@ -412,17 +470,14 @@ async function tryAutomaticAR() {
   try {
     if (!window.isSecureContext) throw new Error('HTTPS_REQUIRED');
 
-    // Same flow used by the working clock experience.
-    // The browser first shows its camera permission prompt.
+    // Same first step as the clock experience.
     if (!cameraPrimed) {
       await requestCameraPermission();
     }
 
-    // The permission dialog gives the browser the interaction it needs on
-    // devices where automatic AR is allowed after camera authorization.
     await waitModel();
 
-    // Ensure the embedded rotation animation is running before entering AR.
+    // Make sure AxioloSpin is ready before AR starts.
     try {
       const animations = mv.availableAnimations || [];
       if (animations.includes('AxioloSpin')) {
@@ -432,12 +487,38 @@ async function tryAutomaticAR() {
       }
     } catch(e) {}
 
-    if (!mv.canActivateAR) {
-      throw new Error('AR_NOT_AVAILABLE');
+    if (isAndroid) {
+      // Android native AR with the website link INSIDE Scene Viewer.
+      // This is attempted immediately after camera permission, mirroring
+      // the working clock flow as closely as possible.
+      const {intent} = buildSceneViewerUrls();
+
+      let leftPage = false;
+      const onVisibility = () => {
+        if (document.hidden) leftPage = true;
+      };
+      document.addEventListener('visibilitychange', onVisibility, {once:false});
+
+      window.location.href = intent;
+
+      // If Chrome/device refuses the automatic native launch, the page
+      // remains visible. In that case show the two approved fallback options.
+      setTimeout(() => {
+        document.removeEventListener('visibilitychange', onVisibility);
+        if (!leftPage && document.visibilityState === 'visible') {
+          autoAttemptFinished = true;
+          launchingAR = false;
+          showARFallback(new Error('ANDROID_AUTO_LAUNCH_BLOCKED'));
+        }
+      }, 1600);
+
+      return;
     }
 
-    await mv.activateAR();
+    if (!mv.canActivateAR) throw new Error('AR_NOT_AVAILABLE');
 
+    await mv.activateAR();
+    stopStartupWatchdog();
     boot.classList.add('hide');
     status.textContent = 'AR active · Axiolo rotates automatically';
   } catch (err) {
@@ -445,55 +526,8 @@ async function tryAutomaticAR() {
     autoAttemptFinished = true;
     showARFallback(err);
   } finally {
-    launchingAR = false;
+    if (!isAndroid) launchingAR = false;
   }
-}
-
-
-function waitModel() {
-  if (mv.loaded) return Promise.resolve();
-
-  return new Promise((resolve,reject) => {
-    const done = () => { cleanup(); resolve(); };
-    const bad = () => { cleanup(); reject(new Error('MODEL_LOAD_FAILED')); };
-    const cleanup = () => {
-      mv.removeEventListener('load', done);
-      mv.removeEventListener('error', bad);
-    };
-
-    mv.addEventListener('load', done, {once:true});
-    mv.addEventListener('error', bad, {once:true});
-  });
-}
-
-function showARFallback(err) {
-  const message = String(err?.message || err || '');
-
-  boot.classList.remove('hide');
-  boot.classList.remove('tap-to-ar');
-
-  spinner.style.display = 'none';
-
-  title.textContent = 'Ready for augmented reality';
-  text.textContent = 'Automatic AR could not start on this device. You can open the camera manually or continue exploring Axiolo in 3D.';
-
-  startBtn.textContent = 'Open camera & start AR';
-  startBtn.classList.add('show');
-
-  view3dBtn.textContent = 'Continue in 3D';
-  view3dBtn.classList.add('show');
-
-  if (/NotAllowed|Permission|denied/i.test(message)) {
-    mini.textContent = 'Camera permission was blocked. Allow camera access and tap “Open camera & start AR”.';
-  } else if (/HTTPS_REQUIRED|secure/i.test(message)) {
-    mini.textContent = 'AR requires HTTPS.';
-  } else if (/AR_NOT_AVAILABLE/i.test(message)) {
-    mini.textContent = 'Your browser could not start WebXR automatically. The button can still use an available native AR viewer.';
-  } else {
-    mini.textContent = 'Some browsers require a direct tap before opening AR.';
-  }
-
-  status.textContent = 'AR ready · choose how to continue';
 }
 
 function prepareUI() {
@@ -531,6 +565,7 @@ startBtn.addEventListener('click', () => {
 });
 
 view3dBtn.addEventListener('click', () => {
+  stopStartupWatchdog();
   boot.classList.add('hide');
   status.textContent = 'Axiolo rotates automatically · drag to rotate · pinch to zoom · tap to discover our website';
 });
@@ -563,20 +598,17 @@ mv.addEventListener('load', () => {
 });
 
 mv.addEventListener('error', () => {
-  spinner.style.display = 'none';
-  title.textContent = 'The 3D model could not be loaded';
-  text.textContent = 'Check that assets/axiolo-mascot.glb exists and is being served correctly.';
-  startBtn.style.display = 'none';
-  view3dBtn.classList.add('show');
-  mini.textContent = 'The GLB must be reachable over HTTPS.';
-  status.textContent = 'Model loading error';
+  stopStartupWatchdog();
+  showARFallback(new Error('MODEL_LOAD_FAILED'));
 });
 
 mv.addEventListener('ar-status', (ev) => {
   const s = ev.detail?.status;
 
   if (s === 'session-started') {
+    stopStartupWatchdog();
     boot.classList.add('hide');
+
     try {
       const animations = mv.availableAnimations || [];
       if (animations.includes('AxioloSpin')) {
@@ -585,11 +617,20 @@ mv.addEventListener('ar-status', (ev) => {
         mv.play({repetitions: Infinity});
       }
     } catch(e) {}
+
+    // Visible for WebXR/in-browser AR. Native Scene Viewer uses its own
+    // website button supplied through link=https://www.axiolo.com/.
+    arSiteButton?.classList.add('show');
+
     status.textContent = 'AR active · Axiolo rotates automatically · move, rotate and scale';
   } else if (s === 'object-placed') {
+    arSiteButton?.classList.add('show');
     status.textContent = 'Axiolo placed · move, rotate and scale';
+  } else if (s === 'not-presenting') {
+    arSiteButton?.classList.remove('show');
   } else if (s === 'failed') {
-    status.textContent = 'AR session failed';
+    arSiteButton?.classList.remove('show');
+    showARFallback(new Error('AR_SESSION_FAILED'));
   }
 });
 
@@ -610,8 +651,10 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('DOMContentLoaded', () => {
   if (!isMobile) return;
 
-  // Exact interaction philosophy of the clock:
-  // request camera shortly after page load, then enter AR automatically.
+  startStartupWatchdog();
+
+  // Clock-style flow:
+  // camera permission -> automatic AR attempt.
   setTimeout(() => tryAutomaticAR(), 180);
 });
 
