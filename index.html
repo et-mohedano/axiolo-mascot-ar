@@ -1,22 +1,467 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0B168F">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#09147B" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
 <title>Axiolo · Augmented Reality</title>
-<meta http-equiv="refresh" content="0;url=experiencia_ar.html">
+
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js"></script>
+
 <style>
-html,body{
-  margin:0;height:100%;display:grid;place-items:center;
-  background:linear-gradient(135deg,#07136F,#245CF4);
-  color:#fff;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+:root{
+  --navy:#07136F;
+  --blue:#245CF4;
+  --blue2:#3169FF;
+  --violet:#7B4BE7;
+  --magenta:#D92CFF;
+  --ink:#101A4B;
+  --muted:#69708A;
+  --white:#fff;
 }
-a{color:#fff;font-weight:800}
+*{box-sizing:border-box}
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  background:#eef2ff;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+model-viewer{
+  position:fixed;inset:0;width:100%;height:100%;
+  background:
+    radial-gradient(circle at 78% 10%,rgba(217,44,255,.12),transparent 26%),
+    radial-gradient(circle at 15% 85%,rgba(36,92,244,.14),transparent 34%),
+    linear-gradient(180deg,#ffffff 0%,#f5f7ff 100%);
+  --poster-color:transparent;
+  --progress-bar-color:var(--blue);
+  --progress-bar-height:3px;
+}
+
+.topbar{
+  position:fixed;
+  top:max(12px,env(safe-area-inset-top));
+  left:12px;right:12px;
+  z-index:20;
+  display:flex;justify-content:space-between;gap:8px;
+  pointer-events:none;
+}
+.pill{
+  background:rgba(255,255,255,.9);
+  border:1px solid rgba(36,92,244,.17);
+  color:var(--navy);
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:.68rem;
+  font-weight:900;
+  letter-spacing:.02em;
+  backdrop-filter:blur(14px);
+  box-shadow:0 8px 28px rgba(18,34,110,.10);
+}
+
+.boot{
+  position:fixed;inset:0;z-index:50;
+  display:grid;place-items:center;padding:22px;
+  background:linear-gradient(145deg,rgba(4,15,101,.94),rgba(38,92,244,.88));
+  backdrop-filter:blur(12px);
+  transition:opacity .28s ease,visibility .28s ease;
+}
+.boot.hide{opacity:0;visibility:hidden;pointer-events:none}
+.panel{
+  width:min(92vw,430px);
+  background:rgba(255,255,255,.97);
+  border:1px solid rgba(255,255,255,.5);
+  border-radius:28px;
+  padding:27px 22px 23px;
+  text-align:center;
+  box-shadow:0 30px 90px rgba(2,9,68,.33);
+}
+.icon{
+  width:66px;height:66px;margin:0 auto 16px;
+  border-radius:21px;
+  display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--magenta),var(--violet) 48%,var(--blue));
+  color:white;font-size:1.85rem;font-weight:900;
+  box-shadow:0 14px 32px rgba(84,61,230,.28);
+}
+h1{font-size:1.22rem;line-height:1.25;color:var(--ink);margin:0 0 8px}
+p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
+.spinner{
+  width:29px;height:29px;
+  border:3px solid rgba(36,92,244,.14);
+  border-top-color:var(--blue);
+  border-radius:50%;
+  margin:16px auto 4px;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.action{
+  display:none;width:100%;margin-top:18px;border:0;border-radius:16px;
+  padding:15px 17px;
+  background:linear-gradient(100deg,var(--magenta),var(--violet) 44%,var(--blue));
+  color:white;font:inherit;font-size:.88rem;font-weight:900;
+  box-shadow:0 12px 30px rgba(67,73,224,.28);
+  cursor:pointer;
+}
+.action.show{display:block}
+.action:disabled{opacity:.65}
+.secondary{
+  display:none;width:100%;margin-top:10px;border:1px solid rgba(36,92,244,.18);
+  border-radius:16px;padding:12px 15px;background:#f5f7ff;color:var(--navy);
+  font:inherit;font-size:.78rem;font-weight:850;cursor:pointer;
+}
+.secondary.show{display:block}
+.mini{margin-top:11px;font-size:.67rem;color:#8a90a5}
+
+.status{
+  position:fixed;
+  left:50%;bottom:max(14px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  z-index:15;
+  background:rgba(7,19,111,.84);
+  color:#fff;padding:8px 12px;border-radius:999px;
+  font-size:.64rem;font-weight:760;white-space:nowrap;
+  pointer-events:none;backdrop-filter:blur(10px);
+}
+
+.tap-hint{
+  position:fixed;
+  left:50%;
+  top:max(58px,calc(env(safe-area-inset-top) + 52px));
+  transform:translateX(-50%);
+  z-index:13;
+  pointer-events:none;
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(36,92,244,.16);
+  color:var(--navy);
+  padding:9px 14px;border-radius:999px;
+  font-size:.7rem;font-weight:850;
+  text-align:center;max-width:88vw;
+  box-shadow:0 10px 28px rgba(13,31,110,.13);
+  opacity:0;transition:opacity .45s ease;
+}
+.tap-hint.show{opacity:1}
+
+.web-visit{
+  position:fixed;
+  right:14px;
+  bottom:max(54px,calc(env(safe-area-inset-bottom) + 54px));
+  z-index:18;
+  display:flex;align-items:center;gap:7px;
+  text-decoration:none;
+  background:linear-gradient(100deg,var(--magenta),var(--violet),var(--blue));
+  color:#fff;
+  padding:12px 15px;border-radius:15px;
+  font-size:.77rem;font-weight:900;
+  box-shadow:0 13px 30px rgba(47,67,213,.25);
+}
+
+@media(max-width:520px){
+  .pill:last-child{display:none}
+  .panel{padding:24px 18px 21px}
+  .status{font-size:.60rem;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+  .tap-hint{font-size:.65rem;white-space:normal;line-height:1.3}
+  .web-visit{right:12px;font-size:.72rem;padding:11px 13px}
+}
 </style>
-<script>location.replace('experiencia_ar.html');</script>
 </head>
+
 <body>
-<p>Opening Axiolo AR… <a href="experiencia_ar.html">Continue</a></p>
+
+<div class="topbar">
+  <div class="pill">AXIOLO</div>
+  <div class="pill">Augmented Reality Experience</div>
+</div>
+
+<model-viewer id="axiolo"
+  src="assets/axiolo-mascot.glb"
+  alt="Axiolo mascot in an interactive 3D and augmented reality experience"
+  camera-controls
+  touch-action="pan-y"
+  auto-rotate
+  auto-rotate-delay="0"
+  rotation-per-second="8deg"
+  shadow-intensity="1.15"
+  shadow-softness=".9"
+  exposure="1.05"
+  environment-image="neutral"
+  camera-orbit="0deg 75deg 2.8m"
+  min-camera-orbit="auto 42deg auto"
+  max-camera-orbit="auto 110deg auto"
+  ar
+  ar-modes="webxr quick-look"
+  ar-placement="floor"
+  ar-scale="auto">
+</model-viewer>
+
+<div class="status" id="status">Preparing the 3D experience…</div>
+<div class="tap-hint" id="tapHint" aria-hidden="true">Tap Axiolo to visit axiolo.com</div>
+
+<a class="web-visit" href="https://www.axiolo.com/" target="_blank" rel="noopener">
+  Visit Axiolo ↗
+</a>
+
+<div class="boot" id="boot" aria-live="polite">
+  <div class="panel">
+    <div class="icon">A</div>
+    <h1 id="bootTitle">Preparing augmented reality</h1>
+    <p id="bootText">We are loading Axiolo and getting the experience ready for your device.</p>
+    <div class="spinner" id="spinner"></div>
+    <button class="action" id="startBtn">Open camera & start AR</button>
+    <button class="secondary" id="view3dBtn">Continue in 3D</button>
+    <div class="mini" id="mini">AR requires HTTPS and a compatible mobile device.</div>
+  </div>
+</div>
+
+<script>
+const AXIOLO_URL = 'https://www.axiolo.com/';
+const MODEL_PATH = 'assets/axiolo-mascot.glb';
+
+const mv = document.getElementById('axiolo');
+const boot = document.getElementById('boot');
+const title = document.getElementById('bootTitle');
+const text = document.getElementById('bootText');
+const spinner = document.getElementById('spinner');
+const startBtn = document.getElementById('startBtn');
+const view3dBtn = document.getElementById('view3dBtn');
+const mini = document.getElementById('mini');
+const status = document.getElementById('status');
+const tapHint = document.getElementById('tapHint');
+
+const isAndroid = /Android/i.test(navigator.userAgent);
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isMobile = isAndroid || isIOS || matchMedia('(pointer:coarse)').matches;
+
+let pointerStart = null;
+
+/* ----------------------------------------------------------
+   Same interaction pattern as the original project:
+   short tap on the 3D model -> website.
+   Drag and pinch remain available for camera-controls.
+---------------------------------------------------------- */
+mv.addEventListener('pointerdown', (e) => {
+  pointerStart = (e.target === mv)
+    ? {x:e.clientX, y:e.clientY, time:Date.now()}
+    : null;
+});
+
+mv.addEventListener('pointerup', (e) => {
+  if (!pointerStart) return;
+  const dx = e.clientX - pointerStart.x;
+  const dy = e.clientY - pointerStart.y;
+  const distance = Math.hypot(dx,dy);
+  const duration = Date.now() - pointerStart.time;
+  pointerStart = null;
+
+  if (e.target === mv && distance < 8 && duration < 400) {
+    window.location.href = AXIOLO_URL;
+  }
+});
+
+mv.addEventListener('pointercancel', () => pointerStart = null);
+
+/* ----------------------------------------------------------
+   Center the actual GLB geometry instead of assuming its origin
+   is already centered.
+---------------------------------------------------------- */
+function centerModel() {
+  try {
+    const c = mv.getBoundingBoxCenter();
+    const d = mv.getDimensions();
+
+    if (c && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.z)) {
+      mv.cameraTarget = `${c.x}m ${c.y}m ${c.z}m`;
+    }
+
+    if (d && Number.isFinite(d.x) && Number.isFinite(d.y) && Number.isFinite(d.z)) {
+      const largest = Math.max(d.x,d.y,d.z);
+      const distance = Math.max(largest * 2.15, 1.6);
+      mv.cameraOrbit = `0deg 75deg ${distance}m`;
+    }
+
+    mv.jumpCameraToGoal();
+  } catch(err) {
+    console.warn('Could not auto-center model:', err);
+  }
+}
+
+/* ----------------------------------------------------------
+   Android Scene Viewer.
+   IMPORTANT: link= is what creates the native Visit button.
+---------------------------------------------------------- */
+function buildSceneViewerUrls() {
+  const modelUrl = new URL(MODEL_PATH, window.location.href).href;
+  const titleText = 'Axiolo';
+
+  const webSceneViewer =
+    'https://arvr.google.com/scene-viewer/1.0' +
+    '?file=' + encodeURIComponent(modelUrl) +
+    '&mode=ar_preferred' +
+    '&link=' + encodeURIComponent(AXIOLO_URL) +
+    '&title=' + encodeURIComponent(titleText) +
+    '&resizable=true';
+
+  const intent =
+    'intent://arvr.google.com/scene-viewer/1.0' +
+    '?file=' + encodeURIComponent(modelUrl) +
+    '&mode=ar_preferred' +
+    '&link=' + encodeURIComponent(AXIOLO_URL) +
+    '&title=' + encodeURIComponent(titleText) +
+    '&resizable=true' +
+    '#Intent;' +
+    'scheme=https;' +
+    'package=com.google.android.googlequicksearchbox;' +
+    'action=android.intent.action.VIEW;' +
+    'S.browser_fallback_url=' + encodeURIComponent(webSceneViewer) + ';' +
+    'end;';
+
+  return {intent, webSceneViewer};
+}
+
+function openAndroidSceneViewer() {
+  const {intent} = buildSceneViewerUrls();
+
+  /* Must happen directly inside the user's click.
+     Do not await camera permissions first or Chrome can lose
+     the user gesture required to launch the native viewer. */
+  status.textContent = 'Opening Android AR viewer…';
+  window.location.href = intent;
+}
+
+async function openAppleAR() {
+  status.textContent = 'Opening augmented reality…';
+
+  try {
+    if (!mv.loaded) {
+      await new Promise((resolve,reject)=>{
+        const ok=()=>{cleanup();resolve()};
+        const bad=()=>{cleanup();reject(new Error('Model load failed'))};
+        const cleanup=()=>{
+          mv.removeEventListener('load',ok);
+          mv.removeEventListener('error',bad);
+        };
+        mv.addEventListener('load',ok,{once:true});
+        mv.addEventListener('error',bad,{once:true});
+      });
+    }
+
+    if (!mv.canActivateAR) throw new Error('AR unavailable');
+    await mv.activateAR();
+    boot.classList.add('hide');
+  } catch(err) {
+    console.warn(err);
+    title.textContent = 'AR could not be opened';
+    text.textContent = 'You can still explore Axiolo in 3D on this device.';
+    spinner.style.display = 'none';
+    startBtn.textContent = 'Try AR again';
+    startBtn.classList.add('show');
+    view3dBtn.classList.add('show');
+  }
+}
+
+function prepareUI() {
+  spinner.style.display = 'none';
+
+  if (!isMobile) {
+    title.textContent = 'Explore Axiolo in 3D';
+    text.textContent = 'Augmented reality is available on compatible Android and Apple mobile devices.';
+    startBtn.textContent = 'Try AR anyway';
+    startBtn.classList.add('show');
+    view3dBtn.classList.add('show');
+    mini.textContent = 'On desktop, use the mouse to rotate and the wheel to zoom.';
+    status.textContent = '3D model ready';
+    return;
+  }
+
+  if (isAndroid) {
+    title.textContent = 'Ready for augmented reality';
+    text.textContent = 'Open Axiolo in your space. Android will also show a native button to visit the Axiolo website from the AR viewer.';
+    startBtn.textContent = 'Open camera & start AR';
+    startBtn.classList.add('show');
+    view3dBtn.classList.add('show');
+    mini.textContent = 'For best results, use Chrome with Google Play Services for AR.';
+    status.textContent = 'Ready for Android AR';
+    return;
+  }
+
+  if (isIOS) {
+    title.textContent = 'Ready for augmented reality';
+    text.textContent = 'Open Axiolo in your space using the AR viewer available on your Apple device.';
+    startBtn.textContent = 'Open camera & start AR';
+    startBtn.classList.add('show');
+    view3dBtn.classList.add('show');
+    mini.textContent = 'For best results, use Safari.';
+    status.textContent = 'Ready for Apple AR';
+    return;
+  }
+
+  startBtn.classList.add('show');
+  view3dBtn.classList.add('show');
+}
+
+startBtn.addEventListener('click', () => {
+  if (!window.isSecureContext) {
+    title.textContent = 'HTTPS is required';
+    text.textContent = 'Augmented reality must be opened from a secure HTTPS address.';
+    mini.textContent = 'Upload this folder to your HTTPS website and try again.';
+    view3dBtn.classList.add('show');
+    return;
+  }
+
+  if (isAndroid) {
+    openAndroidSceneViewer();
+  } else {
+    openAppleAR();
+  }
+});
+
+view3dBtn.addEventListener('click', () => {
+  boot.classList.add('hide');
+  status.textContent = 'Drag to rotate · pinch to zoom · tap Axiolo to visit the website';
+});
+
+mv.addEventListener('load', () => {
+  centerModel();
+
+  setTimeout(() => {
+    prepareUI();
+  }, 250);
+
+  setTimeout(() => tapHint.classList.add('show'), 350);
+  setTimeout(() => tapHint.classList.remove('show'), 5600);
+});
+
+mv.addEventListener('error', () => {
+  spinner.style.display = 'none';
+  title.textContent = 'The 3D model could not be loaded';
+  text.textContent = 'Check that assets/axiolo-mascot.glb exists and is being served correctly.';
+  startBtn.style.display = 'none';
+  view3dBtn.classList.add('show');
+  mini.textContent = 'The GLB must be reachable over HTTPS.';
+  status.textContent = 'Model loading error';
+});
+
+mv.addEventListener('ar-status', (ev) => {
+  const s = ev.detail?.status;
+
+  if (s === 'session-started') {
+    boot.classList.add('hide');
+    status.textContent = 'AR active · move, rotate and scale Axiolo';
+  } else if (s === 'object-placed') {
+    status.textContent = 'Axiolo placed · move, rotate and scale';
+  } else if (s === 'failed') {
+    status.textContent = 'AR session failed';
+  }
+});
+
+/* Safety fallback in case the load event is delayed */
+setTimeout(() => {
+  if (!mv.loaded && spinner.style.display !== 'none') {
+    text.textContent = 'Still loading the 3D model…';
+  }
+}, 5000);
+</script>
 </body>
 </html>
