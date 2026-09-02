@@ -181,7 +181,9 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
   touch-action="pan-y"
   auto-rotate
   auto-rotate-delay="0"
-  rotation-per-second="8deg"
+  rotation-per-second="10deg"
+  autoplay
+  interaction-prompt="none"
   shadow-intensity="1.15"
   shadow-softness=".9"
   exposure="1.05"
@@ -196,10 +198,10 @@ p{font-size:.84rem;line-height:1.55;color:var(--muted);margin:0}
 </model-viewer>
 
 <div class="status" id="status">Preparing the 3D experience…</div>
-<div class="tap-hint" id="tapHint" aria-hidden="true">Tap Axiolo to visit axiolo.com</div>
+<div class="tap-hint" id="tapHint" aria-hidden="true">Tap Axiolo to discover our website</div>
 
 <a class="web-visit" href="https://www.axiolo.com/" target="_blank" rel="noopener">
-  Visit Axiolo ↗
+  Discover our website ↗
 </a>
 
 <div class="boot" id="boot" aria-live="polite">
@@ -262,6 +264,17 @@ mv.addEventListener('pointerup', (e) => {
 
 mv.addEventListener('pointercancel', () => pointerStart = null);
 
+// After manual interaction, allow model-viewer's automatic presentation
+// to resume almost immediately.
+['pointerup', 'touchend'].forEach(evt => {
+  mv.addEventListener(evt, () => {
+    setTimeout(() => {
+      mv.setAttribute('auto-rotate', '');
+      mv.setAttribute('auto-rotate-delay', '0');
+    }, 350);
+  }, {passive:true});
+});
+
 /* ----------------------------------------------------------
    Center the actual GLB geometry instead of assuming its origin
    is already centered.
@@ -293,7 +306,7 @@ function centerModel() {
 ---------------------------------------------------------- */
 function buildSceneViewerUrls() {
   const modelUrl = new URL(MODEL_PATH, window.location.href).href;
-  const titleText = 'Axiolo';
+  const titleText = 'Axiolo — Discover our website';
 
   const webSceneViewer =
     'https://arvr.google.com/scene-viewer/1.0' +
@@ -377,7 +390,7 @@ function prepareUI() {
 
   if (isAndroid) {
     title.textContent = 'Ready for augmented reality';
-    text.textContent = 'Open Axiolo in your space. Android will also show a native button to visit the Axiolo website from the AR viewer.';
+    text.textContent = 'Open Axiolo in your space. The AR viewer will also include a native website button, with the title “Axiolo — Discover our website”.';
     startBtn.textContent = 'Open camera & start AR';
     startBtn.classList.add('show');
     view3dBtn.classList.add('show');
@@ -419,11 +432,25 @@ startBtn.addEventListener('click', () => {
 
 view3dBtn.addEventListener('click', () => {
   boot.classList.add('hide');
-  status.textContent = 'Drag to rotate · pinch to zoom · tap Axiolo to visit the website';
+  status.textContent = 'Auto-rotating · drag to rotate · pinch to zoom · tap Axiolo to discover our website';
 });
 
 mv.addEventListener('load', () => {
   centerModel();
+
+  // Keep the default presentation moving, like the other AR experiences.
+  // If the GLB contains an embedded animation, autoplay will also start it.
+  mv.setAttribute('auto-rotate', '');
+  mv.setAttribute('auto-rotate-delay', '0');
+  mv.setAttribute('rotation-per-second', '10deg');
+  try {
+    if (mv.availableAnimations && mv.availableAnimations.length) {
+      mv.animationName = mv.availableAnimations[0];
+      mv.play({repetitions: Infinity});
+    }
+  } catch (e) {
+    console.warn('No embedded GLB animation available:', e);
+  }
 
   setTimeout(() => {
     prepareUI();
