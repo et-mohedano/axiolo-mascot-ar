@@ -1,0 +1,10 @@
+{
+  "input": "assets\\axiolo-mascot.glb",
+  "output": "assets\\axiolo-mascot-ios.glb",
+  "converted_webp_images": [],
+  "normalized_webp_textures": [],
+  "used_standard_basis_fallback": [],
+  "basis_only_textures": [],
+  "spin_animation_added": true,
+  "warnings": []
+}
